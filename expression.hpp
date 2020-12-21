@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <variant>
+#include <memory>
 
 namespace expression {
 	enum class UnaryOp {Not};
@@ -31,19 +32,19 @@ namespace expression {
 
 	struct UnaryExpr {
 		UnaryOp op;
-		Expr* a;
+		std::shared_ptr<Expr> a;
 	};
 
 	struct BinaryExpr {
 		BinaryOp op;
-		Expr* a;
-		Expr* b;
+		std::shared_ptr<Expr> a;
+		std::shared_ptr<Expr> b;
 	};
 
 	std::vector<bool> gen_table(Expr* expr) {
 		if (std::holds_alternative<BaseExpr>(*expr)) return {0, 1};
 		else if (auto e = std::get_if<UnaryExpr>(expr)) {
-			auto table = gen_table(e->a);
+			auto table = gen_table(e->a.get());
 
 			for (auto it = table.begin(); it != table.end(); ++it) {
 				if (e->op == UnaryOp::Not) *it = !*it;
@@ -52,8 +53,8 @@ namespace expression {
 
 			return table;
 		} else if (auto e = std::get_if<BinaryExpr>(expr)) {		
-			auto a_table = gen_table(e->a);
-			auto b_table = gen_table(e->b);
+			auto a_table = gen_table(e->a.get());
+			auto b_table = gen_table(e->b.get());
 			auto M = a_table.size(), N = b_table.size(), n = log2(N);
 			std::vector<bool> out (M*N);
 

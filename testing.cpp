@@ -11,9 +11,11 @@ int main(int argc, char *argv[]) {
 
 	std::string input(argv[1]);
 	auto tokens = parse::convert_to_postfix(input);
-	auto expr = parse::tokens_to_expr(tokens);
+	auto rule = parse::tokens_to_rule(tokens);
 
-	parse::print_expr(expr);
-	auto table = expression::gen_table(expr);
-	expression::print_table(table);
+	rule.print();
+
+	for (uint64_t i = 0; i < generator::MAX; ++i) {
+		if (rule.check(i)) generator::print_chord(i);
+	}
 }
