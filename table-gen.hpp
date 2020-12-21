@@ -6,14 +6,13 @@
 #include <sstream>
 #include <variant>
 
-// Parsing is easier if we can store parentheses as operators... sorry!
-enum class Op {And, Or, OpenParen, Not};
+enum class UnaryOp {Not};
+enum class BinaryOp {And, Or};
 
-std::unordered_map<std::string, Op> BINARY_OPS = {{"&&", Op::And},
-					       {"||", Op::Or},
-					       {"(", Op::OpenParen}};
+std::unordered_map<std::string, UnaryOp> UNARY_OPS = {{"!", UnaryOp::Not}};
 
-std::unordered_map<std::string, Op> UNARY_OPS = {{"!", Op::Not}};
+std::unordered_map<std::string, BinaryOp> BINARY_OPS = {{"&&", BinaryOp::And},
+						  {"||", BinaryOp::Or}};
 
 uint64_t log2(uint64_t n) {
 	auto r = 0;
@@ -21,68 +20,110 @@ uint64_t log2(uint64_t n) {
 	return r;
 }
 
-struct Expr {
-	// For unary operators, b will be ignored
-	Op op;
+struct BaseExpr;
+struct UnaryExpr;
+struct BinaryExpr;
+
+typedef std::variant<BaseExpr, UnaryExpr, BinaryExpr> Expr;
+
+struct BaseExpr {
+	std::string name;
+};
+
+struct UnaryExpr {
+	UnaryOp op;
+	Expr* a;
+};
+
+struct BinaryExpr {
+	BinaryOp op;
 	Expr* a;
 	Expr* b;
+};
 
-	Expr() {}
-	Expr(Op op) : op(op), a(nullptr), b(nullptr) {}
-	Expr(Op op, Expr* a) : op(op), a(a), b(nullptr) {}
-	Expr(Op op, Expr* a, Expr* b) : op(op), a(a), b(b) {}
+std::vector<bool> gen_table(Expr* expr) {
+	if (std::holds_alternative<BaseExpr>(*expr)) return {0, 1};
+	else if (auto e = std::get_if<UnaryExpr>(expr)) {
+		auto table = gen_table(e->a);
 
-	Expr(std::string& s) {
-		a = out[0]->a;
-		b = out[0]->b;
-		op = out[0]->op;
-		delete out[0];
-	}
+		for (auto it = table.begin(); it != table.end(); ++it) {
+			if (e->op == UnaryOp::Not) *it = !*it;
+			else throw;
+		}
 
-	// Returns how many variables (leaves) were printed
-	int print(bool newline = true, char next_v = 'A') {
-		auto initial_v = next_v;
-		
-		std::cout << '(';
-
-		// Print a
-		if (a) next_v += a->print(false, next_v);
-		else { std::cout << next_v; next_v++; }
-
-		// Print op
-		if (op == Op::And) std::cout << " && ";
-		else if (op == Op::Or) std::cout << " || ";
-		else throw;
-
-		// Print b
-		if (b) next_v += b->print(false, next_v);
-		else { std::cout << next_v; next_v++; };
-
-		// Finish
-		std::cout << ')';
-		if (newline) std::cout << std::endl;
-
-		return next_v - initial_v;
-	}
-
-	std::vector<bool> gen_table() {
-		std::vector<bool> a_table = a ? a->gen_table() : std::vector<bool>{0, 1},
-			b_table = b ? b->gen_table() : std::vector<bool>{0, 1};
+		return table;
+	} else if (auto e = std::get_if<BinaryExpr>(expr)) {		
+		auto a_table = gen_table(e->a);
+		auto b_table = gen_table(e->b);
 		auto M = a_table.size(), N = b_table.size(), n = log2(N);
-		std::vector<bool> out(M*N);
+		std::vector<bool> out (M*N);
+
+		if (M*N > 64) throw;
 
 		for (uint64_t i = 0; i < M*N; ++i) {
 			uint64_t upper = i >> n;
 			uint64_t lower = i & ((1UL << n) - 1);
 
-			if (op == Op::And) out[i] = a_table[upper] && b_table[lower];
-			else if (op == Op::Or) out[i] = a_table[upper] || b_table[lower];
+			if (e->op == BinaryOp::And) out[i] = a_table[upper] && b_table[lower];
+			else if (e->op == BinaryOp::Or) out[i] = a_table[upper] || b_table[lower];
 			else throw;
 		}
 
 		return out;
+	} else throw;
+}
+
+// Expects tokens in postfix order. Heap-allocates everything...
+Expr* from_tokens(std::vector<std::string> tokens) {
+	std::vector<Expr*> out;
+	
+	for (auto token : tokens) {
+		if (UNARY_OPS.find(token) != UNARY_OPS.end()) {
+			auto op = UNARY_OPS[token];
+			auto a = out.back(); out.pop_back();
+			Expr* e = new Expr {std::in_place_index<1>, UnaryExpr {op, a}};
+			out.push_back(e);
+		} else if (BINARY_OPS.find(token) != BINARY_OPS.end()) {
+			auto op = BINARY_OPS[token];
+			auto b = out.back(); out.pop_back();
+			auto a = out.back(); out.pop_back();
+			Expr* e = new Expr {std::in_place_index<2>, BinaryExpr {op, a, b}};
+			out.push_back(e);
+		} else {
+			Expr* e = new Expr {std::in_place_index<0>, BaseExpr {token}};
+			out.push_back(e);
+		}
 	}
-};
+
+	if (out.size() != 1) {
+		printf("%lu items in out instead of 1!\n", out.size());
+		throw;
+	}
+
+	return out[0];
+}
+
+void print_expr(Expr* expr, bool newline = true) {
+	if (auto e = std::get_if<BaseExpr>(expr)) {
+		std::cout << e->name;
+	} else if (auto e = std::get_if<UnaryExpr>(expr)) {
+		std::cout << '(';
+		for (auto [token, op] : UNARY_OPS) if (op == e->op) std::cout << token;
+
+		print_expr(e->a, false);
+		std::cout << ')';
+	} else if (auto e = std::get_if<BinaryExpr>(expr)) {
+		std::cout << '(';
+		print_expr(e->a, false);
+		std::cout << ' ';
+		for (auto [token, op] : BINARY_OPS) if (op == e->op) std::cout << token;
+		std::cout << ' ';
+		print_expr(e->b, false);
+		std::cout << ')';
+	}
+	
+	if (newline) std::cout << std::endl;
+}
 
 void print_table(std::vector<bool> table) {
 	auto vars = log2(table.size());

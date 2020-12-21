@@ -4,11 +4,11 @@
 #include <unordered_map>
 #include <algorithm>
 
-std::vector<std::string> OPERATORS = {"&&", "||", "'"};
+std::vector<std::string> OPERATORS = {"&&", "||", "!"};
 
 std::unordered_map<std::string, int> PRECEDENCE = {{"||", 20},
 						   {"&&", 50},
-						   {"'", 100},
+						   {"!", 100},
 						   {"(", 999}};
 
 std::vector<std::string> convert_to_postfix(std::string& in) {
@@ -43,14 +43,3 @@ std::vector<std::string> convert_to_postfix(std::string& in) {
 
 	return out;
 }
-
-int main(int argc, char *argv[]) {
-	if (argc < 2) exit(1);
-
-	std::string input(argv[1]);
-	auto converted_input = convert_to_postfix(input);
-
-	for (auto token : converted_input) std::cout << token << ' ';
-	std::cout << std::endl;
-}
-

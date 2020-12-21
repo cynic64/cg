@@ -1,19 +1,19 @@
+#include <iostream>
+
 #include "table-gen.hpp"
+#include "parse.hpp"
 
-int main() {
-	Expr a(Op::Or);
-	Expr b(Op::And, &a);
-	Expr c(Op::Or, &b);
-	c.print();
-	print_table(c.gen_table());
+int main(int argc, char *argv[]) {
+	if (argc < 2) {
+		printf("Not enough args\n");
+		exit(1);
+	}
 
-	std::string s = "A && B || C && D";
-	Expr d(s);
-	d.print();
-	print_table(d.gen_table());
+	std::string input(argv[1]);
+	auto tokens = convert_to_postfix(input);
+	auto expr = from_tokens(tokens);
 
-	s = "A && !B";
-	d = {s};
-	d.print();
-	print_table(d.gen_table());
+	print_expr(expr);
+	auto table = gen_table(expr);
+	print_table(table);
 }
