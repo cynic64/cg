@@ -6,7 +6,7 @@
 #include <string>
 #include <chrono>
 
-#include "constants.hpp"
+#include "chord.hpp"
 #include "helpers.hpp"
 
 namespace generator {
@@ -16,8 +16,8 @@ namespace generator {
 	void print_table(std::vector<bool> table) {
 		auto vars = helpers::log2(table.size());
 
-		for (uint64_t i = 0; i < table.size(); ++i) {
-			for (uint64_t v = 0; v < vars; ++v)
+		for (size_t i = 0; i < table.size(); ++i) {
+			for (uint32_t v = 0; v < vars; ++v)
 				std::cerr << ((char) (v+'A')) << ": " << (i >> (vars-v-1) & 1) << " ";
 			std::cerr << "= ";
 			std::cerr << table[i] << std::endl;
@@ -25,7 +25,7 @@ namespace generator {
 	}
 
 	struct Rule {
-		std::vector<uint64_t> conditions;
+		std::vector<uint32_t> conditions;
 		std::vector<bool> table;
 
 		// Checks chords starting at [start] and outputting to [out],
@@ -33,13 +33,13 @@ namespace generator {
 		// number of chords checked and stopping position when either
 		// out is filled or stop is reached or more than TIMEOUT seconds
 		// pass.
-		std::pair<uint64_t, uint64_t> check_range(uint64_t start, uint64_t stop, std::vector<uint64_t>& out) {
+		std::pair<uint32_t, uint32_t> check_range(uint32_t start, uint32_t stop, std::vector<uint32_t>& out) {
 			if (out.size() != BUFSIZE) throw;
 
 			auto start_time = std::chrono::high_resolution_clock::now();
 
-			uint64_t valid = 0;
-			uint64_t i = start;
+			uint32_t valid = 0;
+			uint32_t i = start;
 
 			// Optimized loops for small numbers of conditions
 			if (conditions.size() == 1) {
@@ -80,7 +80,7 @@ namespace generator {
 			std::cerr << "Conditions:" << std::endl;
 			for (auto c : conditions) {
 				std::cout << '\t';
-				helpers::print_bits_octal(c);
+				chord::print_mixed(c);
 			}
 			std::cerr << "Truth table:" << std::endl;
 			print_table(table);

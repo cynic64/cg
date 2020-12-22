@@ -10,7 +10,7 @@
 #include <iterator>
 #include <deque>
 
-#include "constants.hpp"
+#include "chord.hpp"
 #include "helpers.hpp"
 #include "generator.hpp"
 
@@ -65,10 +65,10 @@ namespace parse {
 	bool is_reference(std::string& token) {
 		if (std::find(ALL_TOKENS.begin(), ALL_TOKENS.end(), token) != ALL_TOKENS.end()) return false;
 		if (token.size() != 12) return true;
-		return !std::any_of(token.begin(), token.end(), [](auto c){return c >= '0' && c <= '0'+BASE;});
+		return !std::any_of(token.begin(), token.end(), [](auto c){return c >= '0' && c <= '9';});
 	}
 
-	generator::Rule new_rule(uint64_t mask) {
+	generator::Rule new_rule(uint32_t mask) {
 		generator::Rule r;
 		r.conditions = {{mask}};
 		r.table = {0, 1};
@@ -106,10 +106,8 @@ namespace parse {
 		r.conditions = a.conditions;
 		r.conditions.insert(r.conditions.begin(), b.conditions.begin(), b.conditions.end());
 
-		uint64_t M = a.table.size(), N = b.table.size(), m = helpers::log2(M);
+		uint32_t M = a.table.size(), N = b.table.size(), m = helpers::log2(M);
 		r.table.resize(M*N);
-
-		if (M+N > 64) throw;
 
 		for (uint64_t i = 0; i < M*N; ++i) {
 			uint64_t upper = i >> m;
@@ -165,7 +163,7 @@ namespace parse {
 				if (rules.find(token) == rules.end()) return false;
 				output_stack.push_back(rules[token]);
 			} else {
-				uint64_t mask = std::stoul(token, nullptr, BASE);
+				auto mask = chord::from_string(token);
 				output_stack.push_back(new_rule(mask));
 			}
 		}
