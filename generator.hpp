@@ -2,23 +2,17 @@
 #define CG_GENERATOR_H
 
 #include <iostream>
-#include <array>
+#include <vector>
 #include <string>
+#include <chrono>
 
 #include "constants.hpp"
 #include "helpers.hpp"
 
 namespace generator {
 	const auto BUFSIZE = 65536;
+	const std::chrono::duration<float> TIMEOUT(0.25);
 	
-	struct Condition {
-		uint64_t mask;
-
-		bool check(Chord c) {
-			return (c & mask) > 0;
-		}
-	};
-
 	void print_table(std::vector<bool> table) {
 		auto vars = helpers::log2(table.size());
 
@@ -31,61 +25,62 @@ namespace generator {
 	}
 
 	struct Rule {
-		std::vector<Condition> conditions;
+		std::vector<uint64_t> conditions;
 		std::vector<bool> table;
 
-		// Checks [count] chords, starting at [start] and adding [step]
-		// each time. Modifies [out] and returns the number of chords
-		// written.
-		uint64_t check_range(uint64_t start, uint64_t count, uint64_t step, std::array<uint64_t, BUFSIZE>& out) {
-			if (count > BUFSIZE) throw;
+		// Checks chords starting at [start] and outputting to [out],
+		// which should already by resized to BUFSIZE. Returns the
+		// number of chords checked and stopping position when either
+		// out is filled or stop is reached or more than TIMEOUT seconds
+		// pass.
+		std::pair<uint64_t, uint64_t> check_range(uint64_t start, uint64_t stop, std::vector<uint64_t>& out) {
+			if (out.size() != BUFSIZE) throw;
+
+			auto start_time = std::chrono::high_resolution_clock::now();
 
 			uint64_t valid = 0;
+			uint64_t i = start;
 
 			// Optimized loops for small numbers of conditions
 			if (conditions.size() == 1) {
-				for (uint64_t i = 0, j = start; i < count; ++i, j += step) {
-					if (table[(j & conditions[0].mask) > 0]) out[valid++] = j;
+				for (; i < stop && valid < BUFSIZE; ++i) {
+					if (table[(i & conditions[0]) > 0]) out[valid++] = i;
+					if (i % 32768 == 0 && std::chrono::high_resolution_clock::now() - start_time > TIMEOUT) break;
 				}
-				return valid;
+				return {valid, i};
 			} else if (conditions.size() == 2) {
-				for (uint64_t i = 0, j = start; i < count; ++i, j += step) {
-					if (table[((j & conditions[0].mask) > 0) * 2
-						  + ((j & conditions[1].mask) > 0)]) out[valid++] = j;
+				for (; i < stop && valid < BUFSIZE; ++i) {
+					if (table[((i & conditions[0]) > 0) * 2
+						  + ((i & conditions[1]) > 0)]) out[valid++] = i;
+					if (i % 32768 == 0 && std::chrono::high_resolution_clock::now() - start_time > TIMEOUT) break;
 				}
-				return valid;
+				return {valid, i};
 			} else if (conditions.size() == 3) {
-				for (uint64_t i = 0, j = start; i < count; ++i, j += step) {
-					if (table[((j & conditions[0].mask) > 0) * 4
-						  + ((j & conditions[1].mask) > 0) * 2
-						  + ((j & conditions[2].mask) > 0)]) out[valid++] = j;
+				for (; i < stop && valid < BUFSIZE; ++i) {
+					if (table[((i & conditions[0]) > 0) * 4
+						  + ((i & conditions[1]) > 0) * 2
+						  + ((i & conditions[2]) > 0)]) out[valid++] = i;
+					if (i % 32768 == 0 && std::chrono::high_resolution_clock::now() - start_time > TIMEOUT) break;
 				}
-				return valid;
+				return {valid, i};
 			}
 
 			// General, but slow solution
-			for (uint64_t i = 0, j = start; i < count; ++i, j += step) {
+			for (i = start; i < stop && valid < BUFSIZE; ++i) {
 				auto table_idx = 0;
-				for (auto cnd : conditions) table_idx = table_idx << 1 | cnd.check(j);
-				if (table[table_idx]) out[valid++] = j;
+				for (auto cnd : conditions) table_idx = table_idx << 1 | ((i & cnd) > 0);
+				if (table[table_idx]) out[valid++] = i;
+				if (i % 32768 == 0 && std::chrono::high_resolution_clock::now() - start_time > TIMEOUT) break;
 			}
 
-			return valid;
-		}
-
-		uint64_t thing(uint64_t a) { return a; }
-
-		bool check(Chord c) {
-			uint64_t idx = 0;
-			for (auto cnd : conditions) idx = idx << 1 | cnd.check(c);
-			return table[idx];
+			return {valid, i};
 		}
 
 		void print() {
 			std::cerr << "Conditions:" << std::endl;
 			for (auto c : conditions) {
 				std::cout << '\t';
-				helpers::print_bits_octal(c.mask);
+				helpers::print_bits_octal(c);
 			}
 			std::cerr << "Truth table:" << std::endl;
 			print_table(table);

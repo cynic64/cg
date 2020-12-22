@@ -98,7 +98,7 @@ namespace parse {
 		bool or_mergeable = op == BinaryOp::Or && a.table == std::vector<bool>{false, true} && b.table == std::vector<bool>{false, true};
 		bool and_mergeable = op == BinaryOp::And && a.table == std::vector<bool>{true, false} && b.table == std::vector<bool>{true, false};
 		if (or_mergeable || and_mergeable) {
-			r.conditions = {{a.conditions[0].mask | b.conditions[0].mask}};
+			r.conditions = {{a.conditions[0] | b.conditions[0]}};
 			r.table = a.table;
 			return r;
 		}
@@ -106,7 +106,7 @@ namespace parse {
 		r.conditions = a.conditions;
 		r.conditions.insert(r.conditions.begin(), b.conditions.begin(), b.conditions.end());
 
-		auto M = a.table.size(), N = b.table.size(), m = helpers::log2(M);
+		uint64_t M = a.table.size(), N = b.table.size(), m = helpers::log2(M);
 		r.table.resize(M*N);
 
 		if (M+N > 64) throw;
