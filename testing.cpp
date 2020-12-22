@@ -26,9 +26,9 @@ int main(int argc, char *argv[]) {
 
 	uint64_t c = 0;
 	for (uint64_t i = 0; i < generator::MAX; ++i) {
-		if (i % (1UL << 26) == 0) printf("%.2f%%\n", (double) i / (double) generator::MAX);
+		if (i % (1UL << 26) == 0) printf("%.2f%%\n", (double) i / (double) generator::MAX * 100.0);
 		if (r.check(i)) {
-			generator::print_chord(i);
+			//generator::print_chord(i);
 			c++;
 		}
 	}

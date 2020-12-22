@@ -40,6 +40,7 @@ namespace generator {
 		bool check(Chord c) {
 			uint64_t idx = 0;
 			for (auto cnd : conditions) idx = idx << 1 | cnd.check(c);
+			//return idx & 0x1234;
 			return truth_table[idx];
 		}
 

@@ -77,7 +77,6 @@ namespace parse {
 		return out;
 	}
 
-	// Expects tokens in postfix order. Heap-allocates all the exprs! Sorry :p
 	generator::Rule tokens_to_rule(std::vector<std::string> tokens) {
 		std::vector<std::shared_ptr<expression::Expr>> expressions;
 		std::vector<generator::Condition> conditions;
