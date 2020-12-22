@@ -2,9 +2,12 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <future>
 
 #include "constants.hpp"
 #include "parse.hpp"
+
+const auto THREADS = 16;
 
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
@@ -21,21 +24,28 @@ int main(int argc, char *argv[]) {
 	parse::Ruleset rules;
 	parse::read_rules_from_file(infile, rules);
 
-	if (!parse::read_rule(user_rule, rules)) {
+	if (!parse::read_rule(user_rule, rules, true)) {
 		std::cout << "User rule references unspecified rules!" << std::endl;
 		throw;
 	}
 
 	auto rule = rules["0"];
 	rule.print();
-	uint64_t count = 0;
-	for (uint64_t i = 0, j = 0; i < MAX; ++i, j += 33554393) {
-		if (i % (1UL << 32) == 0) std::cout << ((double) i / (double) MAX * 100.0) << "%" << std::endl;
-		if (rule.check(j)) {
-			generator::print_chord(j);
-			count++;
+
+	std::array<std::future<uint64_t>, THREADS> futures;
+	std::array<std::array<uint64_t, generator::BUFSIZE>, THREADS> buffers;
+
+	uint64_t start = 0;
+	while (start < MAX) {
+		for (auto t = 0; t < THREADS; ++t) {
+			futures[t] = std::async(std::launch::async, &generator::Rule::check_range,
+						&rule, start, generator::BUFSIZE, 1, std::ref(buffers[t]));
+			start += generator::BUFSIZE;
+		}
+
+		for (auto t = 0; t < THREADS; ++t) {
+			auto count = futures[t].get();
+			for (uint64_t i = 0; i < count; ++i) helpers::print_chord(buffers[t][i]);
 		}
 	}
-
-	std::cout << std::endl << count << "total." << std::endl;
 }

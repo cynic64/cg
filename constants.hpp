@@ -6,6 +6,7 @@ const auto OCTAVES = 3;
 const auto BASE = 1 << OCTAVES;
 const auto BITS = INTERVALS * OCTAVES;
 const uint64_t MAX = 1UL << BITS;
-const auto BUFSIZE = 4096;
+
+typedef uint64_t Chord;
 
 #endif // CG_CONSTANTS_H

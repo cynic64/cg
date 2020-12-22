@@ -92,11 +92,11 @@ namespace parse {
 
 		// Special case 1: OR-ing two positive base expressions is the
 		// same as OR-ing the OR of their masks (what a
-		// sentence...). Special case 2: And-ing two negative base
+		// sentence...). Special case 2: AND-ing two negative base
 		// expressions is the same as NAND-ing the OR of their masks. In
 		// both cases, we just OR the masks and copy the table.
-		auto or_mergeable = op == BinaryOp::Or && a.table == std::vector<bool>{0, 1} && b.table == std::vector<bool>{0, 1};
-		auto and_mergeable = op == BinaryOp::And && a.table == std::vector<bool>{1, 0} && b.table == std::vector<bool>{1, 0};
+		bool or_mergeable = op == BinaryOp::Or && a.table == std::vector<bool>{false, true} && b.table == std::vector<bool>{false, true};
+		bool and_mergeable = op == BinaryOp::And && a.table == std::vector<bool>{true, false} && b.table == std::vector<bool>{true, false};
 		if (or_mergeable || and_mergeable) {
 			r.conditions = {{a.conditions[0].mask | b.conditions[0].mask}};
 			r.table = a.table;
@@ -106,17 +106,17 @@ namespace parse {
 		r.conditions = a.conditions;
 		r.conditions.insert(r.conditions.begin(), b.conditions.begin(), b.conditions.end());
 
-		auto M = a.table.size(), N = b.table.size(), n = helpers::log2(N);
+		auto M = a.table.size(), N = b.table.size(), m = helpers::log2(M);
 		r.table.resize(M*N);
 
 		if (M+N > 64) throw;
 
 		for (uint64_t i = 0; i < M*N; ++i) {
-			uint64_t upper = i >> n;
-			uint64_t lower = i & ((1UL << n) - 1);
+			uint64_t upper = i >> m;
+			uint64_t lower = i & ((1UL << m) - 1);
 
-			if (op == BinaryOp::And) r.table[i] = a.table[upper] && b.table[lower];
-			else if (op == BinaryOp::Or) r.table[i] = a.table[upper] || b.table[lower];
+			if (op == BinaryOp::And) r.table[i] = a.table[lower] && b.table[upper];
+			else if (op == BinaryOp::Or) r.table[i] = a.table[lower] || b.table[upper];
 			else throw;
 		}
 
@@ -126,8 +126,8 @@ namespace parse {
 	// Parses and adds the rule in line to the given Ruleset. Returns false
 	// if the line contains references to rules that don't exist yet, true
 	// for success. Also returns true if the line is empty or begins with a
-	// #.
-	bool read_rule(std::string line, Ruleset& rules) {
+	// #. If debug is set, will print the converted token stream.
+	bool read_rule(std::string line, Ruleset& rules, bool debug = false) {
 		if (line.size() == 0 || line[0] == '#') return true;
 		auto colon_pos = line.find(':');
 		if (colon_pos == std::string::npos) throw;
@@ -141,6 +141,12 @@ namespace parse {
 			  std::back_inserter(tokens));
 
 		tokens = convert_to_postfix(tokens);
+
+		if (debug) {
+			std::cerr << "Rule interpreted as:";
+			for (auto const& t : tokens) std::cerr << " " << t;
+			std::cerr << std::endl;
+		}
 
 		std::vector<generator::Rule> output_stack;
 		for (auto& token : tokens) {
