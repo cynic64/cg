@@ -8,44 +8,28 @@
 #include <algorithm>
 #include <memory>
 #include <iterator>
-#include <set>
+#include <deque>
 
-#include "expression.hpp"
+#include "constants.hpp"
+#include "helpers.hpp"
 #include "generator.hpp"
 
 namespace parse {
-	std::unordered_map<std::string, expression::UnaryOp> UNARY_OPS = {{"!", expression::UnaryOp::Not}};
+	enum class UnaryOp {Not};
+	enum class BinaryOp {And, Or};
 
-	std::unordered_map<std::string, expression::BinaryOp> BINARY_OPS = {{"&&", expression::BinaryOp::And},
-								{"||", expression::BinaryOp::Or}};
+	typedef std::unordered_map<std::string, generator::Rule> Ruleset;
+
+	std::unordered_map<std::string, UnaryOp> UNARY_OPS = {{"!", UnaryOp::Not}};
+
+	std::unordered_map<std::string, BinaryOp> BINARY_OPS = {{"&&", BinaryOp::And},
+									    {"||", BinaryOp::Or}};
 
 	std::unordered_map<std::string, int> PRECEDENCE = {{"||", 20},
 							   {"&&", 50},
 							   {"!", 100}};
 
 	std::vector<std::string> ALL_TOKENS = {"(", ")", "!", "&&", "||"};
-
-	void print_expr(expression::Expr* expr, bool newline = true) {
-		if (auto e = std::get_if<expression::BaseExpr>(expr)) {
-			std::cout << e->name;
-		} else if (auto e = std::get_if<expression::UnaryExpr>(expr)) {
-			std::cout << '(';
-			for (auto [token, op] : UNARY_OPS) if (op == e->op) std::cout << token;
-
-			print_expr(e->a.get(), false);
-			std::cout << ')';
-		} else if (auto e = std::get_if<expression::BinaryExpr>(expr)) {
-			std::cout << '(';
-			print_expr(e->a.get(), false);
-			std::cout << ' ';
-			for (auto [token, op] : BINARY_OPS) if (op == e->op) std::cout << token;
-			std::cout << ' ';
-			print_expr(e->b.get(), false);
-			std::cout << ')';
-		}
-	
-		if (newline) std::cout << std::endl;
-	}
 
 	std::vector<std::string> convert_to_postfix(std::vector<std::string>& tokens) {
 		std::vector<std::string> ops;
@@ -77,152 +61,128 @@ namespace parse {
 		return out;
 	}
 
-	generator::Rule tokens_to_rule(std::vector<std::string> tokens) {
-		std::vector<std::shared_ptr<expression::Expr>> expressions;
-		std::vector<generator::Condition> conditions;
+	// If it's not an operator or a mask, it's a reference
+	bool is_reference(std::string& token) {
+		if (std::find(ALL_TOKENS.begin(), ALL_TOKENS.end(), token) != ALL_TOKENS.end()) return false;
+		if (token.size() != 12) return true;
+		return !std::any_of(token.begin(), token.end(), [](auto c){return c >= '0' && c <= '0'+BASE;});
+	}
+
+	generator::Rule new_rule(uint64_t mask) {
+		generator::Rule r;
+		r.conditions = {{mask}};
+		r.table = {0, 1};
+
+		return r;
+	}
 	
-		for (auto token : tokens) {
+	generator::Rule new_rule(UnaryOp op, generator::Rule& a) {
+		generator::Rule r;
+		r.conditions = a.conditions;
+
+		if (op == UnaryOp::Not) {
+			for (auto x : a.table) r.table.push_back(!x);
+		} else throw;
+		
+		return r;
+	}
+
+	generator::Rule new_rule(BinaryOp op, generator::Rule& a, generator::Rule& b) {
+		generator::Rule r;
+
+		// Special case 1: OR-ing two positive base expressions is the
+		// same as OR-ing the OR of their masks (what a
+		// sentence...). Special case 2: And-ing two negative base
+		// expressions is the same as NAND-ing the OR of their masks. In
+		// both cases, we just OR the masks and copy the table.
+		auto or_mergeable = op == BinaryOp::Or && a.table == std::vector<bool>{0, 1} && b.table == std::vector<bool>{0, 1};
+		auto and_mergeable = op == BinaryOp::And && a.table == std::vector<bool>{1, 0} && b.table == std::vector<bool>{1, 0};
+		if (or_mergeable || and_mergeable) {
+			r.conditions = {{a.conditions[0].mask | b.conditions[0].mask}};
+			r.table = a.table;
+			return r;
+		}
+
+		r.conditions = a.conditions;
+		r.conditions.insert(r.conditions.begin(), b.conditions.begin(), b.conditions.end());
+
+		auto M = a.table.size(), N = b.table.size(), n = helpers::log2(N);
+		r.table.resize(M*N);
+
+		if (M+N > 64) throw;
+
+		for (uint64_t i = 0; i < M*N; ++i) {
+			uint64_t upper = i >> n;
+			uint64_t lower = i & ((1UL << n) - 1);
+
+			if (op == BinaryOp::And) r.table[i] = a.table[upper] && b.table[lower];
+			else if (op == BinaryOp::Or) r.table[i] = a.table[upper] || b.table[lower];
+			else throw;
+		}
+
+		return r;
+	}
+
+	// Parses and adds the rule in line to the given Ruleset. Returns false
+	// if the line contains references to rules that don't exist yet, true
+	// for success. Also returns true if the line is empty or begins with a
+	// #.
+	bool read_rule(std::string line, Ruleset& rules) {
+		if (line.size() == 0 || line[0] == '#') return true;
+		auto colon_pos = line.find(':');
+		if (colon_pos == std::string::npos) throw;
+		auto name = line.substr(0, colon_pos);
+		line = line.substr(colon_pos+1);
+		
+		std::vector<std::string> tokens;
+		std::istringstream iss(line);
+		std::copy(std::istream_iterator<std::string>(iss),
+			  std::istream_iterator<std::string>(),
+			  std::back_inserter(tokens));
+
+		tokens = convert_to_postfix(tokens);
+
+		std::vector<generator::Rule> output_stack;
+		for (auto& token : tokens) {
 			if (UNARY_OPS.find(token) != UNARY_OPS.end()) {
 				auto op = UNARY_OPS[token];
-				auto a = expressions.back(); expressions.pop_back();
-				std::shared_ptr<expression::Expr> e (new expression::Expr {std::in_place_index<1>, expression::UnaryExpr {op, a}});
-				expressions.push_back(e);
+				auto a = output_stack.back(); output_stack.pop_back();
+				auto r = new_rule(op, a);
+				output_stack.push_back(r);
 			} else if (BINARY_OPS.find(token) != BINARY_OPS.end()) {
 				auto op = BINARY_OPS[token];
-				auto b = expressions.back(); expressions.pop_back();
-				auto a = expressions.back(); expressions.pop_back();
-				std::shared_ptr<expression::Expr> e (new expression::Expr {std::in_place_index<2>, expression::BinaryExpr {op, a, b}});
-				expressions.push_back(e);
+				auto a = output_stack.back(); output_stack.pop_back();
+				auto b = output_stack.back(); output_stack.pop_back();
+				auto r = new_rule(op, a, b);
+				output_stack.push_back(r);
+			} else if (is_reference(token)) {
+				if (rules.find(token) == rules.end()) return false;
+				output_stack.push_back(rules[token]);
 			} else {
-				std::shared_ptr<expression::Expr> e (new expression::Expr {std::in_place_index<0>, expression::BaseExpr {token}});
-				expressions.push_back(e);
-				conditions.push_back({token});
+				uint64_t mask = std::stoul(token, nullptr, BASE);
+				output_stack.push_back(new_rule(mask));
 			}
 		}
 
-		if (expressions.size() != 1) {
-			printf("%lu expressions left instead of 1!\n", expressions.size());
+		if (output_stack.size() != 1) {
+			printf("%lu items left on output stack instead of 1!\n", output_stack.size());
 			throw;
 		}
 
-		std::cout << "Parsed expression:" << std::endl;
-		print_expr(expressions[0].get());
+		rules[name] = output_stack[0];
 
-		auto table = expression::gen_table(expressions[0].get());
-
-		return {conditions, table};
+		return true;
 	}
 
-	template<class T>
-	std::unordered_map<std::string, generator::Rule> read_rules(T& in) {
-		std::unordered_map<std::string, std::vector<std::string>> rules_tokenized;
-		std::set<std::string> unexpanded_rules;
+	// Modifies rules to include the additional rules from the given file
+	void read_rules_from_file(std::istream& in, Ruleset& rules) {
+		std::deque<std::string> lines;
+		for (std::string line; getline(in, line);) lines.push_back(line);
 
-		for (std::string line; std::getline(in, line);) {
-			if (line[0] == '#') continue;
-			std::cout << "Reading: |" << line << "|" << std::endl;
-
-			auto colon_pos = line.find(':');
-			if (colon_pos == std::string::npos) {
-				printf("No colon on line!\n");
-				throw;
-			}
-
-			auto name = line.substr(0, colon_pos);
-			std::cout << "\tName: " << name << std::endl;
-
-			std::vector<std::string> tokens;
-			std::istringstream definition (line.substr(colon_pos+1));
-			std::copy(std::istream_iterator<std::string>(definition),
-				  std::istream_iterator<std::string>(),
-				  std::back_inserter(tokens));
-
-			rules_tokenized[name] = tokens;
-			unexpanded_rules.insert(name);
+		while (!lines.empty()) {
+			auto line = lines.front(); lines.pop_front();
+			if (!read_rule(line, rules)) lines.push_back(line);
 		}
-
-		while (!unexpanded_rules.empty()) {
-			auto progress = 0;
-			for (auto& [name, _] : rules_tokenized) {
-				if (unexpanded_rules.find(name) == unexpanded_rules.end()) continue;
-				
-				auto is_expanded = true;
-
-				auto& tokens = rules_tokenized[name];
-				size_t token_idx = 0;
-				while (token_idx < tokens.size()) {
-					auto token = tokens[token_idx];
-					if (std::find(ALL_TOKENS.begin(), ALL_TOKENS.end(), token) == ALL_TOKENS.end()) {
-						// If it's not a token, it's
-						// either a mask or something we
-						// have to expand
-						if (token.size() == generator::INTERVALS
-						    && std::all_of(token.begin(), token.end(), [](auto c){ return c >= '0' && c <= '0' + generator::BASE; })) {
-							token_idx++;
-							continue;
-						}
-
-						is_expanded = false;
-
-						if (unexpanded_rules.find(token) == unexpanded_rules.end()) {
-							auto expansion = rules_tokenized[token];
-							std::vector<std::string> wrapped_expansion {"("};
-							wrapped_expansion.insert(wrapped_expansion.end(), expansion.begin(), expansion.end());
-							wrapped_expansion.push_back(")");
-
-							tokens.erase(tokens.begin() + token_idx);
-							tokens.insert(tokens.begin() + token_idx, wrapped_expansion.begin(), wrapped_expansion.end());
-
-							progress++;
-						}
-					}
-
-					token_idx++;
-				}
-
-				if (!is_expanded) std::cout << "Have to expand: " << name << std::endl;
-
-				if (is_expanded) {
-					unexpanded_rules.erase(name);
-					progress++;
-				}
-			}
-
-			if (progress == 0) {
-				std::cout << "Cannot expand remaining rules:" << std::endl;
-				for (auto& name : unexpanded_rules) std::cout << "\t" << name << std::endl;
-				throw;
-			}
-
-			std::cout << "Progress: " << progress << std::endl;
-		}
-
-		std::cout << std::endl << "Expanded rules:" << std::endl;
-		for (auto& [name, tokens] : rules_tokenized) {
-			std::cout << "\t" << name << ": ";
-			for (auto& t : tokens) std::cout << t << " ";
-			std::cout << std::endl;
-		}
-
-		for (auto& [name, tokens] : rules_tokenized) tokens = convert_to_postfix(tokens);
-
-		std::cout << std::endl << "Processed rules:" << std::endl;
-		for (auto& [name, tokens] : rules_tokenized) {
-			std::cout << "\t" << name << ": ";
-			for (auto& t : tokens) std::cout << t << " ";
-			std::cout << std::endl;
-		}
-
-		std::unordered_map<std::string, generator::Rule> rules;
-		for (auto& [name, tokens] : rules_tokenized) rules[name] = tokens_to_rule(tokens);
-
-		for (auto& [name, rule] : rules) {
-			std::cout << name << std::endl;
-			rule.print();
-			std::cout << std::endl;
-		}
-			
-		return rules;
 	}
 }
 

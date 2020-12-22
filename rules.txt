@@ -1,5 +1,6 @@
 # format:
 # rule name: definition
+ionian: ! m2 && ! m3 && ! d5 && ! m6 && ! m7
 root: 700000000000
 m2:   070000000000
 M2:   007000000000
