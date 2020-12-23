@@ -127,7 +127,7 @@ namespace generator {
 		void print() {
 			std::cerr << "Conditions:" << std::endl;
 			for (auto c : conditions) {
-				std::cout << '\t';
+				std::cerr << '\t';
 				chord::print_mixed(std::cerr, c);
 			}
 			std::cerr << "Truth table has size " << table.size() << std::endl;

@@ -70,7 +70,7 @@ namespace parse {
 
 	generator::Rule new_rule(uint32_t mask) {
 		generator::Rule r;
-		r.conditions = {{mask}};
+		r.conditions = {mask};
 		r.table = {0, 1};
 
 		return r;
@@ -98,7 +98,7 @@ namespace parse {
 		bool or_mergeable = op == BinaryOp::Or && a.table == std::vector<bool>{false, true} && b.table == std::vector<bool>{false, true};
 		bool and_mergeable = op == BinaryOp::And && a.table == std::vector<bool>{true, false} && b.table == std::vector<bool>{true, false};
 		if (or_mergeable || and_mergeable) {
-			r.conditions = {{a.conditions[0] | b.conditions[0]}};
+			r.conditions = {a.conditions[0] | b.conditions[0]};
 			r.table = a.table;
 			return r;
 		}

@@ -63,14 +63,14 @@ namespace chord {
 		std::cout << std::endl;
 	}
 
-	void print_mixed(std::ostream& out, Chord c) {
+	void print_mixed(std::ostream& out, Chord c, bool newline = true) {
 		auto shift = BITS;
 		for (auto bits : BITS_PER_INTERVAL) {
 			shift -= bits;
 			auto n = (c >> shift) & ((1 << bits) - 1);
 			out << n;
 		}
-		out << std::endl;
+		if (newline) out << std::endl;
 	}
 }
 
