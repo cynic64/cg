@@ -50,19 +50,29 @@ int main(int argc, char *argv[]) {
 
 		rule.print_matching();
 	} else if (subcommand == "inspect") {
+		std::vector<inspect::Key> keys;
 		if (argc < 3) {
-			std::cerr << "Reading from stdin." << std::endl;
-			for (std::string line; std::getline(std::cin, line);) {
-				auto chord = chord::from_string(line);
-				chord::print_mixed(std::cout, chord, false);
-				std::cout << ", ";
-				inspect::inspect(chord, true);
-				std::cout << std::endl;
-			}
+			keys = inspect::ALL_KEYS;
+			std::cerr << "No inspection keys given." << std::endl;
 		} else {
-			std::string in(argv[2]);
-			auto chord = chord::from_string(in);
-			inspect::inspect(chord);
+			for (auto i = 2; i < argc; ++i) keys.push_back(inspect::from_string(argv[i]));
+		}
+
+		std::cerr << "Inspecting: ";
+		for (auto k : keys) std::cerr << inspect::to_string(k) << " ";
+		std::cerr << std::endl;
+
+		for (std::string line; getline(std::cin, line);) {
+			auto chord = chord::from_string(line);
+			auto details = inspect::inspect(chord, keys);
+
+			std::cout << "chord: ";
+			chord::print_mixed(std::cout, chord);
+			for (auto k : keys) {
+				std::cout << ", " << inspect::to_string(k) << ": ";
+				std::cout << details[k];
+			}
+			std::cout << std::endl;
 		}
 	} else {
 		std::cerr << "Unknown subcommand: |" << subcommand << "|" << std::endl;

@@ -48,29 +48,23 @@ namespace chord {
 		return out;
 	}
 
-	void print_intervals(Chord c) {
-		auto intervals = to_intervals(c);
-		for (auto i : intervals) std::cout << i << " ";
-		std::cout << std::endl;
-	}
-
-	void print_binary(Chord c) {
+	std::string fmt_binary(Chord c) {
+		std::string s;
 		auto i = BITS - 1;
 		for (auto bits : BITS_PER_INTERVAL) {
-			for (auto j = 0; j < bits; ++j, i--) std::cout << ((c >> i) & 1);
-			std::cout << " ";
+			for (auto j = 0; j < bits; ++j, i--) s += std::to_string((c >> i) & 1);
+			s += " ";
 		}
-		std::cout << std::endl;
+		return s;
 	}
 
-	void print_mixed(std::ostream& out, Chord c, bool newline = true) {
+	std::string fmt_mixed(Chord c) {
 		auto shift = BITS;
 		for (auto bits : BITS_PER_INTERVAL) {
 			shift -= bits;
 			auto n = (c >> shift) & ((1 << bits) - 1);
 			out << n;
 		}
-		if (newline) out << std::endl;
 	}
 }
 

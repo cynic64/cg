@@ -16,7 +16,7 @@ namespace generator {
 
 	const auto THREADS = 8;
 	const uint32_t COUNT_PER_THREAD = chord::MAX / THREADS;
-	
+
 	void print_table(std::vector<bool> table) {
 		auto vars = helpers::log2(table.size());
 
@@ -55,11 +55,17 @@ namespace generator {
 
 					if (stop_pos == all_done) {
 						still_running--;
-						for (uint32_t i = 0; i < count; ++i) chord::print_mixed(std::cout, buffers[t][i]);
+						for (uint32_t i = 0; i < count; ++i) {
+							chord::print_mixed(std::cout, buffers[t][i]);
+							std::cout << std::endl;
+						}
 						continue;
 					}
 
-					for (uint32_t i = 0; i < count; ++i) chord::print_mixed(std::cout, buffers[t][i]);
+					for (uint32_t i = 0; i < count; ++i) {
+						chord::print_mixed(std::cout, buffers[t][i]);
+						std::cout << std::endl;
+					}
 					futures[t] = std::async(std::launch::async, &Rule::check_range, this,
 								stop_pos, all_done, std::ref(buffers[t]));
 				}
@@ -129,6 +135,7 @@ namespace generator {
 			for (auto c : conditions) {
 				std::cerr << '\t';
 				chord::print_mixed(std::cerr, c);
+				std::cerr << std::endl;
 			}
 			std::cerr << "Truth table has size " << table.size() << std::endl;
 		}

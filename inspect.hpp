@@ -5,101 +5,59 @@
 #include <vector>
 #include <cstdint>
 #include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <sstream>
 
 #include "chord.hpp"
+#include "finger.hpp"
+#include "helpers.hpp"
 
 namespace inspect {
-	const auto STRINGS = 6;
+	enum class Key {Fingering, FingeringScore, Intervals, NoteCount};
 
-	// [0] = low E, [5] = high E. -1 means a string is not played, otherwise
-	// the value represents the fret.
-	typedef std::array<int, STRINGS> Fingering;
+	const std::vector<Key> ALL_KEYS = {Key::FingeringScore, Key::Fingering, Key::Intervals, Key::NoteCount};
 
-	const Fingering EMPTY_FING = {-1, -1, -1, -1, -1, -1};
+	const std::unordered_map<std::string, Key> KEY_NAMES = {{"fingering", Key::Fingering},
+								{"fingering-score", Key::FingeringScore},
+								{"intervals", Key::Intervals},
+								{"note-count", Key::NoteCount}};
 
-	// Offsets from C1 (3rd fret on the A string)
-	const std::array<int, STRINGS> OFFSETS = {-8, -3, 2, 7, 11, 16};
+	typedef std::unordered_map<Key, std::string> Details;
 
-	namespace scoring {
-		const auto WORST = INT32_MAX;
-		// A positive number is a penalty, a negative number is a bonus
-		// (remember, lower is better)
-		const auto STRETCH = 10;     // Added for every absolute
-					     // difference to the lowest note
-		const auto OPEN_STRING = -1; // Added for every open string
-		const auto REGISTER = 1;     // Added for every fret (so lower
-					     // frets are preferred)
+	std::string to_string(Key key) {
+		for (auto [k, v] : KEY_NAMES) if (v == key) return k;
+		throw std::runtime_error("Invalid key");
 	}
 
-	int calc_score(Fingering fing) {
-		auto string0_fret = fing[0];
-		auto score = 0;
-		for (auto fret : fing) {
-			if (fret == 0) { score += scoring::OPEN_STRING; continue; }
-			score += abs(fret-string0_fret) * scoring::STRETCH;
-			score += fret * scoring::REGISTER;
-		}
-
-		return score;
+	Key from_string(const char * s) {
+		if (KEY_NAMES.find(s) == KEY_NAMES.end()) throw std::runtime_error("Invalid key string");
+		return KEY_NAMES.at(s);
 	}
 
-	// Returns (score, fingering). Lower score is better. scoring::WORST is
-	// returned if there are too many notes to fit on a fretboard. Lower
-	// score is better.
-	std::pair<int, Fingering> finger(std::vector<int> notes, int start,
-					 Fingering fing, int taken_ct) {
-		int N = notes.size();
-		// Edge case: done arranging or all strings used
-		if (start == N || taken_ct == STRINGS) {
-			if (start < N) return {scoring::WORST, fing};
-			else return {calc_score(fing), fing};
-		}
+	Details inspect(chord::Chord c, std::vector<Key>& keys) {
+		Details details;
 
-		// Otherwise, put the next note on every string and return the
-		// best score
-		auto best_score = scoring::WORST;
-		auto best_fing = EMPTY_FING;
-		auto note = notes[start];
-		for (auto string = 0; string < STRINGS; ++string) {
-			auto string_already_taken = fing[string] != -1;
-			if (string_already_taken) continue;
-
-			auto fret = note - OFFSETS[string];
-			if (fret < 0) continue;
-
-			auto f = fing;
-			f[string] = fret;
-
-			auto [score, complete_fing] = finger(notes, start+1, f, taken_ct+1);
-			if (score < best_score) {
-				best_score = score;
-				best_fing = complete_fing;
-			}
-		}
-
-		return {best_score, best_fing};
-	}
-
-	void print_fingering(Fingering fing, bool newline = true) {
-		for (auto n : fing) {
-			if (n < 0) std::cout << "x ";
-			else std::cout << n << " ";
-		}
-		if (newline) std::cout << std::endl;
-	}
-
-	void inspect(chord::Chord c, bool compact = false) {
 		auto intervals = chord::to_intervals(c);
-		auto [score, fing] = inspect::finger(intervals, 0, inspect::EMPTY_FING, 0);
+		details[Key::Intervals] = helpers::fmt_vector(intervals);
 
-		if (compact) {
-			std::cout << "score: " << score << ", fingering: ";
-			print_fingering(fing, false);
-		} else {
-			std::cout << "Best fingering score: " << score << std::endl;
-			std::cout << "Fingering:" << std::endl;
-			inspect::print_fingering(fing);
+		for (auto k : keys) {
+			if (k == Key::Fingering || k == Key::FingeringScore) {
+				if (details.find(Key::Fingering) != details.end()) continue;
+				
+				auto [score, fing] = finger::finger(intervals, 0, finger::EMPTY_FING, 0);
+				details[Key::FingeringScore] = std::to_string(score);
+				std::ostringstream oss;
+				finger::print(oss, fing);
+				details[Key::Fingering] = oss.str();
+			} else if (k == Key::NoteCount) {
+				auto count = intervals.size();
+				details[Key::NoteCount] = std::to_string(count);
+			} else if (k == Key::Intervals) {
+			} else throw std::runtime_error("Unknown key");
 		}
+
+		return details;
 	}
 }
 
