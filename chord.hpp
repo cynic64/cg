@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <algorithm>
+#include <vector>
 
 namespace chord {
         // Octaves (and therefore bits) per interval:
@@ -33,16 +34,23 @@ namespace chord {
 		return out;
 	}
 
-	void print_intervals(Chord c) {
+	std::vector<int> to_intervals(Chord c) {
+		std::vector<int> out;
 		for (auto octave = 0; octave < *std::max_element(BITS_PER_INTERVAL.begin(), BITS_PER_INTERVAL.end()); ++octave) {
 			auto interval_shift = BITS;
 			for (auto interval = 0; interval < INTERVALS; ++interval) {
 				if (BITS_PER_INTERVAL[interval] <= octave) break;
 				interval_shift -= BITS_PER_INTERVAL[interval];
 				if (c >> (interval_shift + octave) & 1)
-					std::cout << octave * INTERVALS + interval << " ";
+					out.push_back(octave * INTERVALS + interval);
 			}
 		}
+		return out;
+	}
+
+	void print_intervals(Chord c) {
+		auto intervals = to_intervals(c);
+		for (auto i : intervals) std::cout << i << " ";
 		std::cout << std::endl;
 	}
 
@@ -55,14 +63,14 @@ namespace chord {
 		std::cout << std::endl;
 	}
 
-	void print_mixed(Chord c) {
+	void print_mixed(std::ostream& out, Chord c) {
 		auto shift = BITS;
 		for (auto bits : BITS_PER_INTERVAL) {
 			shift -= bits;
 			auto n = (c >> shift) & ((1 << bits) - 1);
-			std::cout << n;
+			out << n;
 		}
-		std::cout << std::endl;
+		out << std::endl;
 	}
 }
 
