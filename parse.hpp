@@ -68,7 +68,7 @@ namespace parse {
 		return !std::any_of(token.begin(), token.end(), [](auto c){return c >= '0' && c <= '9';});
 	}
 
-	generator::Rule new_rule(uint32_t mask) {
+	generator::Rule new_rule(chord::IntervalBits mask) {
 		generator::Rule r;
 		r.conditions = {mask};
 		r.table = {0, 1};
@@ -163,7 +163,7 @@ namespace parse {
 				if (rules.find(token) == rules.end()) return false;
 				output_stack.push_back(rules[token]);
 			} else {
-				auto mask = chord::from_string(token);
+				auto mask = chord::bits_from_string(token);
 				output_stack.push_back(new_rule(mask));
 			}
 		}

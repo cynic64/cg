@@ -14,14 +14,15 @@
 #include "helpers.hpp"
 
 namespace inspect {
-	enum class Key {Fingering, FingeringScore, Intervals, NoteCount};
+	enum class Key {Fingering, FingeringScore, Intervals, NoteCount, Root};
 
-	const std::vector<Key> ALL_KEYS = {Key::FingeringScore, Key::Fingering, Key::Intervals, Key::NoteCount};
+	const std::vector<Key> ALL_KEYS = {Key::FingeringScore, Key::Fingering, Key::Root, Key::Intervals, Key::NoteCount};
 
 	const std::unordered_map<std::string, Key> KEY_NAMES = {{"fingering", Key::Fingering},
 								{"fingering-score", Key::FingeringScore},
 								{"intervals", Key::Intervals},
-								{"note-count", Key::NoteCount}};
+								{"note-count", Key::NoteCount},
+								{"root", Key::Root}};
 
 	typedef std::unordered_map<Key, std::string> Details;
 
@@ -38,22 +39,23 @@ namespace inspect {
 	Details inspect(chord::Chord c, std::vector<Key>& keys) {
 		Details details;
 
-		auto intervals = chord::to_intervals(c);
-		details[Key::Intervals] = helpers::fmt_vector(intervals);
 
 		for (auto k : keys) {
 			if (k == Key::Fingering || k == Key::FingeringScore) {
 				if (details.find(Key::Fingering) != details.end()) continue;
 				
-				auto [score, fing] = finger::finger(intervals, 0, finger::EMPTY_FING, 0);
+				auto [score, fing] = finger::finger(c, 0, finger::EMPTY_FING, 0);
 				details[Key::FingeringScore] = std::to_string(score);
 				std::ostringstream oss;
 				finger::print(oss, fing);
 				details[Key::Fingering] = oss.str();
 			} else if (k == Key::NoteCount) {
-				auto count = intervals.size();
+				auto count = c.notes.size();
 				details[Key::NoteCount] = std::to_string(count);
 			} else if (k == Key::Intervals) {
+				details[Key::Intervals] = helpers::fmt_vector(c.notes);
+			} else if (k == Key::Root) {
+				details[Key::Root] = std::to_string(c.root);
 			} else throw std::runtime_error("Unknown key");
 		}
 

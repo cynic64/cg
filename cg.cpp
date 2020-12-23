@@ -13,11 +13,15 @@ const auto USAGE = R"(Usage: cg <subcommand> [options]
 
 Subcommands:
  gen [rule]          Generate chords following [rule]
- inspect [chord]     Inspect chords (can read from stdin))";
+ inspect [what]      Inspect chords (what = fingerings, intervals...)
+ transpose [offset]  Transpose chords up and down
+
+<inspect> and <transpose> read from stdin.
+)";
 
 int main(int argc, char *argv[]) {
 	if (argc < 2) {
-		std::cerr << USAGE << std::endl;
+		std::cerr << USAGE;
 		exit(1);
 	}
 
@@ -41,7 +45,7 @@ int main(int argc, char *argv[]) {
 		parse::read_rules_from_file(infile, rules);
 
 		if (!parse::read_rule(user_rule, rules, true)) {
-			std::cout << "User rule references unspecified rules!" << std::endl;
+			std::cerr << "User rule references unspecified rules!" << std::endl;
 			exit(1);
 		}
 
@@ -49,6 +53,25 @@ int main(int argc, char *argv[]) {
 		rule.print();
 
 		rule.print_matching();
+	} else if (subcommand == "transpose") {
+		std::vector<int> shifts;
+		if (argc < 3) {
+			std::cerr << "No shifts given, will try everything possible." << std::endl;
+			for (auto i = chord::LOWEST_NOTE; i <= chord::HIGHEST_NOTE; ++i) shifts.push_back(i);
+		} else {
+			for (auto i = 2; i < argc; ++i) shifts.push_back(std::stoi(argv[i]));
+			std::cerr << "Shifts: " << helpers::fmt_vector(shifts) << std::endl;
+		}
+
+		for (std::string line; std::getline(std::cin, line);) {
+			chord::Chord orig(line);
+			for (auto s : shifts) {
+				auto c = orig;
+				c.transpose(s);
+				if (!c.within_range()) continue;
+				std::cout << c.fmt() << std::endl;
+			}
+		}
 	} else if (subcommand == "inspect") {
 		std::vector<inspect::Key> keys;
 		if (argc < 3) {
@@ -63,15 +86,14 @@ int main(int argc, char *argv[]) {
 		std::cerr << std::endl;
 
 		for (std::string line; getline(std::cin, line);) {
-			auto chord = chord::from_string(line);
+			chord::Chord chord(line);
 			auto details = inspect::inspect(chord, keys);
 
-			std::cout << "chord: ";
-			chord::print_mixed(std::cout, chord);
 			for (auto k : keys) {
-				std::cout << ", " << inspect::to_string(k) << ": ";
-				std::cout << details[k];
+				std::cout << inspect::to_string(k) << ": ";
+				std::cout << details[k] << ", ";
 			}
+			std::cout << "chord: " << chord.fmt();
 			std::cout << std::endl;
 		}
 	} else {

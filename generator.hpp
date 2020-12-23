@@ -56,21 +56,24 @@ namespace generator {
 					if (stop_pos == all_done) {
 						still_running--;
 						for (uint32_t i = 0; i < count; ++i) {
-							chord::print_mixed(std::cout, buffers[t][i]);
-							std::cout << std::endl;
+							chord::Chord c(buffers[t][i], 0);
+							if (c.notes.empty()) continue;
+							std::cout << c.fmt() << std::endl;
 						}
 						continue;
 					}
 
 					for (uint32_t i = 0; i < count; ++i) {
-						chord::print_mixed(std::cout, buffers[t][i]);
-						std::cout << std::endl;
+						chord::Chord c(buffers[t][i], 0);
+						if (c.notes.empty()) continue;
+						std::cout << c.fmt() << std::endl;
 					}
+
 					futures[t] = std::async(std::launch::async, &Rule::check_range, this,
 								stop_pos, all_done, std::ref(buffers[t]));
 				}
 			}
-			std::cerr << chords_found << " chords found." << std::endl;
+			std::cerr << chords_found << " chord types found." << std::endl;
 		}
 
 		// Checks chords starting at [start] and outputting to [out],
@@ -133,9 +136,7 @@ namespace generator {
 		void print() {
 			std::cerr << "Conditions:" << std::endl;
 			for (auto c : conditions) {
-				std::cerr << '\t';
-				chord::print_mixed(std::cerr, c);
-				std::cerr << std::endl;
+				std::cerr << chord::fmt_mixed(c) << std::endl;
 			}
 			std::cerr << "Truth table has size " << table.size() << std::endl;
 		}
