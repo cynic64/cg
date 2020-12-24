@@ -14,7 +14,7 @@ const auto USAGE = R"(Usage: cg <subcommand> [options]
 Subcommands:
  gen [rule]          Generate chords following [rule]
  inspect [what]      Inspect chords (what = fingerings, intervals...)
- transpose [offset]  Transpose chords up and down
+ transpose [offsets] Transpose chords up and down
 
 <inspect> and <transpose> read from stdin.
 )";
@@ -41,9 +41,9 @@ int main(int argc, char *argv[]) {
 		std::string user_rule = "0: ";
 		user_rule += argv[2];
 
-		std::ifstream infile("rules.txt");
+		std::ifstream infile("../rules.txt");
 		if (!infile.is_open()) {
-			std::cerr << "Could not open rules.txt!" << std::endl;
+			std::cerr << "Could not open ../rules.txt!" << std::endl;
 			exit(1);
 		}
 
