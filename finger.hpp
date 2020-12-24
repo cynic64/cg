@@ -63,20 +63,21 @@ namespace finger {
 			}
 
 			have_played = true;
+			if (barre && fret < last_fret) {
+				score += scoring::DOWN_FROM_A_BARRE;
+				if (justify) counts["down-from-a-barré"] += scoring::DOWN_FROM_A_BARRE;
+			}
+
 			if (fret == 0) {
 				score += scoring::OPEN_STRING;
 				if (justify) counts["open-string"] += scoring::OPEN_STRING;
 				continue;
 			}
+
 			// If you can barré it, it doesn't count
 			if (fret == last_fret) {
 				barre = true;
 				continue;
-			}
-
-			if (barre && fret < last_fret) {
-				score += scoring::DOWN_FROM_A_BARRE;
-				if (justify) counts["down-from-a-barré"] += scoring::DOWN_FROM_A_BARRE;
 			}
 
 			auto stretch = abs(fret-string0_fret) * scoring::STRETCH;
