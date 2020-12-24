@@ -125,6 +125,7 @@ The generator works representing (almost) every possible chord as a 32-bit integ
 - `5`: `101` --> Present 0 and 2 octaves above the root
 - `6`: `110` --> Present 1 and 2 octaves above the root
 - `7`: `111` --> Present 0, 1, and 2 octaves above the root
+
 The first octal number represents the interval 0, which is the root note. The second octal represents the interval 1, which is 1 semitone above the root (a minor 2nd). The 3rd octal number represents the interval 2, etc. all the way up to interval 11, which is a major 7th. This:
 `730100000002`
 
