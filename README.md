@@ -102,6 +102,38 @@ $ ./cg gen 'low-root && harmonic-minor && ! m6 && m3 && ! 4 && 5 && ( M7 || M2 )
 $ ./cg gen 'ionian && ! M2 && ! 4 && 5 && high-root && ! M6' | ./cg transpose | ./cg inspect | grep -Ev 'note-count: (1|2|3)' | grep -Ev 'fingering-score: 2147' | grep -Eo --color=never 'fingering: ([x0-9]+ ?){6}'  # just the fingerings
 ```
 
-Hours of fun!
+Hours of joy!
 
 ## Details on Rule Syntax
+Have a look at rules.txt and you'll see how the basic rules, like `m6` and `root` are defined:
+```
+low-root: 100000000000
+
+root: 700000000000
+m2:   070000000000
+M2:   007000000000
+m3:   000700000000
+...
+```
+
+The generator works representing (almost) every possible chord as a 32-bit integer. The numbers in rules.txt are in octal and are in the same format as the 32-bit integers used by the generator. Each bit represents in which octaves that a is present. Looking at the individual octal numbers in binary might make more sense:
+- `0`: `000` --> This note is not present in any octave
+- `1`: `001` --> Present 0 octaves above the root
+- `2`: `010` --> Present 1 octave above the root
+- `3`: `011` --> Present 0 and 1 octaves above the root
+- `4`: `100` --> Present 2 octaves above the root
+- `5`: `101` --> Present 0 and 2 octaves above the root
+- `6`: `110` --> Present 1 and 2 octaves above the root
+- `7`: `111` --> Present 0, 1, and 2 octaves above the root
+The first octal number represents the interval 0, which is the root note. The second octal represents the interval 1, which is 1 semitone above the root (a minor 2nd). The 3rd octal number represents the interval 2, etc. all the way up to interval 11, which is a major 7th. This:
+`730100000002`
+
+Represents a chord with the root note in octaves 0, 1 and 2 (`7`), a minor second present 0 and 1 octaves of the root (`3`), a minor 3rd present 0 octaves above the root (`0`), and a major 7th present 1 octave above the root (plus another 11 semitones, so almost 2 octaves) (`4`). That's an ugly chord, but hopefully it makes _slightly_ more sense now.
+
+The first 8 octal numbers can go up to 7, but the last 4 only go up to 4 (2 bits) to be able to squeeze everything into 32 bits.
+
+A rule "matches" a chord when AND-ing a chord with the rule's bitmask returns a positive result. Let's look at the "root" rule:
+`700000000000` a.k.a `11100000000000000000000000000000` in binary
+So, "root" matches whenever the root note is present in any octave.
+
+Good luck!
