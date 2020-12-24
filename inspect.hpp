@@ -14,12 +14,13 @@
 #include "helpers.hpp"
 
 namespace inspect {
-	enum class Key {Fingering, FingeringScore, Intervals, NoteCount, Root};
+	enum class Key {Fingering, FingeringScore, FingeringReason, Intervals, NoteCount, Root};
 
-	const std::vector<Key> ALL_KEYS = {Key::FingeringScore, Key::Fingering, Key::Root, Key::Intervals, Key::NoteCount};
+	const std::vector<Key> ALL_KEYS = {Key::FingeringScore, Key::Fingering, Key::Root, Key::NoteCount, Key::Intervals, Key::FingeringReason};
 
 	const std::unordered_map<std::string, Key> KEY_NAMES = {{"fingering", Key::Fingering},
 								{"fingering-score", Key::FingeringScore},
+								{"fingering-reason", Key::FingeringReason},
 								{"intervals", Key::Intervals},
 								{"note-count", Key::NoteCount},
 								{"root", Key::Root}};
@@ -41,14 +42,14 @@ namespace inspect {
 
 
 		for (auto k : keys) {
-			if (k == Key::Fingering || k == Key::FingeringScore) {
+			if (k == Key::Fingering || k == Key::FingeringScore || k == Key::FingeringReason) {
 				if (details.find(Key::Fingering) != details.end()) continue;
 				
 				auto [score, fing] = finger::finger(c, 0, finger::EMPTY_FING, 0);
+				auto reason = finger::calc_score(fing, true).second;
 				details[Key::FingeringScore] = std::to_string(score);
-				std::ostringstream oss;
-				finger::print(oss, fing);
-				details[Key::Fingering] = oss.str();
+				details[Key::Fingering] = finger::fmt(fing);
+				details[Key::FingeringReason] = reason;
 			} else if (k == Key::NoteCount) {
 				auto count = c.notes.size();
 				details[Key::NoteCount] = std::to_string(count);

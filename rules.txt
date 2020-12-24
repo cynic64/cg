@@ -1,9 +1,17 @@
 # format:
 # rule name: definition
 ionian: ! m2 && ! m3 && ! d5 && ! m6 && ! m7
+dorian: ! m2 && ! M3 && ! d5 && ! m6 && ! M7
+phrygian: ! M2 && ! M3 && ! d5 && ! M6 && ! M7
+phrygian-dom: ! M2 && ! M3 && ! d5 && ! M6 && ! m7 && M7
 lydian: ! m2 && ! m3 && ! 4 && ! m6 && ! m7
+mixolydian: ! m2 && ! m3 && ! d5 && ! m6 && ! M7
+aeolian: ! m2 && ! M3 && ! d5 && ! M6 && ! M7
+harmonic-minor: ! m2 && ! M3 && ! d5 && ! M6 && ! m7 && M7
+locrian: ! M2 && ! M3 && ! 5 && ! M6 && ! M7
+
 octave3: 444444440000
-high_root: 600000000000 && ( ! 100000000000 ) && 011111111111
+high-root: 600000000000 && ( ! 100000000000 ) && 011111111111
 
 root: 700000000000
 m2:   070000000000

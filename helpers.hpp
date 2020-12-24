@@ -11,13 +11,19 @@ namespace helpers {
 		return r;
 	}
 
-	std::string fmt_vector(std::vector<int> v) {
+	std::string fmt_vector(std::vector<std::string>& v) {
 		std::string s;
 		for (auto x : v) {
 			if (!s.empty()) s += " ";
-			s += std::to_string(x);
+			s += x;
 		}
 		return s;
+	}
+
+	std::string fmt_vector(std::vector<int> v) {
+		std::vector<std::string> converted;
+		for (auto x : v) converted.push_back(std::to_string(x));
+		return fmt_vector(converted);
 	}
 }
 	

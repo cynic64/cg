@@ -56,13 +56,14 @@ int main(int argc, char *argv[]) {
 	} else if (subcommand == "transpose") {
 		std::vector<int> shifts;
 		if (argc < 3) {
-			std::cerr << "No shifts given, will try everything possible." << std::endl;
-			for (auto i = chord::LOWEST_NOTE; i <= chord::HIGHEST_NOTE; ++i) shifts.push_back(i);
+			std::cerr << "No shifts given, will try -8 to 12." << std::endl;
+			for (auto i = -8; i <= 12; ++i) shifts.push_back(i);
 		} else {
 			for (auto i = 2; i < argc; ++i) shifts.push_back(std::stoi(argv[i]));
 			std::cerr << "Shifts: " << helpers::fmt_vector(shifts) << std::endl;
 		}
 
+		auto count = 0;
 		for (std::string line; std::getline(std::cin, line);) {
 			chord::Chord orig(line);
 			for (auto s : shifts) {
@@ -70,8 +71,10 @@ int main(int argc, char *argv[]) {
 				c.transpose(s);
 				if (!c.within_range()) continue;
 				std::cout << c.fmt() << std::endl;
+				count++;
 			}
 		}
+		std::cerr << count << " " << "transpositions generated." << std::endl;
 	} else if (subcommand == "inspect") {
 		std::vector<inspect::Key> keys;
 		if (argc < 3) {
