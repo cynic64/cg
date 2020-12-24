@@ -144,7 +144,7 @@ namespace finger {
 
 	std::string fmt(Fingering fing) {
 		std::vector<std::string> parts;
-		for (auto fret : fing) parts.push_back(fret < -1 ? "x" : std::to_string(fret));
+		for (auto fret : fing) parts.push_back(fret < 0 ? "x" : std::to_string(fret));
 		return helpers::fmt_vector(parts);
 	}
 }

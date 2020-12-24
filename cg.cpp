@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 
 		std::ifstream infile("rules.txt");
 		if (!infile.is_open()) {
-			std::cerr << "Could not open rule file!" << std::endl;
+			std::cerr << "Could not open rules.txt!" << std::endl;
 			exit(1);
 		}
 
