@@ -21,9 +21,14 @@ namespace helpers {
 	}
 
 	std::string fmt_vector(std::vector<int> v) {
-		std::vector<std::string> converted;
-		for (auto x : v) converted.push_back(std::to_string(x));
-		return fmt_vector(converted);
+		// It's worth basically duplicating the other fmt_vector here
+		// because this gets called so often and is slower otherwise.
+		std::string s;
+		for (auto x : v) {
+			if (!s.empty()) s += " ";
+			s += std::to_string(x);
+		}
+		return s;
 	}
 }
 	
