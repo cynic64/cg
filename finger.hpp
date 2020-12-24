@@ -36,9 +36,9 @@ namespace finger {
 		const auto OPEN_STRING = -5;         // Added for every open string
 		const auto REGISTER = 1;             // Added for every fret (so lower
 					             // frets are preferred)
-		const auto TOO_MANY_FINGERS = 20;    // Added for every finger
+		const auto TOO_MANY_FINGERS = 40;    // Added for every finger
 						     // over the max necessary
-		const auto DOWN_FROM_A_BARRE = 20;   // Fretting a lower fret
+		const auto DOWN_FROM_A_BARRE = 40;   // Fretting a lower fret
 						     // after a barré is hard
 		const auto MUTE_IN_THE_MIDDLE = 50;  // Having to skip a string
 						     // in between a bunch being
